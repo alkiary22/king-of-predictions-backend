@@ -478,6 +478,71 @@ async def my_predictions(user=Depends(get_current_user)):
     return preds
 
 
+
+@api_router.get("/predictions/public")
+async def public_predictions(user=Depends(get_current_user)):
+    """
+    قراءة فقط: يعرض توقعات المستخدمين للمباريات التي بدأت أو انتهت.
+    لا يغير نقاط ولا توقعات ولا نتائج.
+    """
+    preds = await db.predictions.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
+
+    user_ids = list({p.get("user_id") for p in preds if p.get("user_id")})
+    match_ids = list({p.get("match_id") for p in preds if p.get("match_id")})
+
+    users = await db.users.find(
+        {"id": {"$in": user_ids}},
+        {"_id": 0, "id": 1, "name": 1, "avatar": 1}
+    ).to_list(10000) if user_ids else []
+
+    matches = await db.matches.find(
+        {"id": {"$in": match_ids}},
+        {"_id": 0, "id": 1, "home_team": 1, "away_team": 1, "kickoff": 1, "kickoff_utc": 1, "status": 1}
+    ).to_list(10000) if match_ids else []
+
+    umap = {u["id"]: u for u in users}
+    mmap = {m["id"]: m for m in matches}
+
+    now = datetime.now(timezone.utc)
+    rows = []
+
+    for pred in preds:
+        m = mmap.get(pred.get("match_id"))
+        if not m:
+            continue
+
+        status = str(m.get("status") or "").lower()
+        kickoff = m.get("kickoff") or m.get("kickoff_utc")
+
+        show = status in ["live", "started", "finished", "ended"]
+
+        if not show and kickoff:
+            try:
+                dt = datetime.fromisoformat(str(kickoff).replace("Z", "+00:00"))
+                show = dt <= now
+            except Exception:
+                show = False
+
+        if not show:
+            continue
+
+        u = umap.get(pred.get("user_id"), {})
+
+        rows.append({
+            "id": pred.get("id"),
+            "match_id": pred.get("match_id"),
+            "user_name": u.get("name") or "مستخدم",
+            "user_avatar": u.get("avatar"),
+            "home_team": m.get("home_team"),
+            "away_team": m.get("away_team"),
+            "pred_home": pred.get("home_score"),
+            "pred_away": pred.get("away_score"),
+            "created_at": pred.get("created_at"),
+        })
+
+    return rows
+
+
 # ---------- Leaderboard ----------
 @api_router.get("/leaderboard", response_model=List[LeaderboardEntry])
 async def leaderboard():
