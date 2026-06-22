@@ -535,6 +535,8 @@ async def public_predictions(user=Depends(get_current_user)):
             "user_avatar": u.get("avatar"),
             "home_team": m.get("home_team"),
             "away_team": m.get("away_team"),
+            "home_team_name": m.get("home_team_name") or m.get("home_name") or m.get("home_team"),
+            "away_team_name": m.get("away_team_name") or m.get("away_name") or m.get("away_team"),
             "pred_home": pred.get("home_score"),
             "pred_away": pred.get("away_score"),
             "created_at": pred.get("created_at"),
