@@ -438,6 +438,28 @@ LEAGUE_AR_NAMES = {
 
 
 
+
+# ===== Saudi Highlightly Arabic aliases =====
+TEAM_AR_NAMES.update({
+    "Abha": "أبها",
+    "Al Diriyah": "الدرعية",
+    "Al-Diriyah": "الدرعية",
+    "Al Suqoor": "الصقور",
+    "Al-Suqoor": "الصقور",
+    "Al Taawoun FC": "التعاون",
+    "Al Taawoun": "التعاون",
+    "Al-Ahli Saudi": "الأهلي",
+    "Al Ahli Saudi": "الأهلي",
+    "Al-Faisaly": "الفيصلي",
+    "Al Faisaly": "الفيصلي",
+    "Al-Hazem": "الحزم",
+    "Al Hazem": "الحزم",
+    "Al-Hilal Saudi": "الهلال",
+    "Al Hilal Saudi": "الهلال",
+    "Al-Qadisiyah": "القادسية",
+    "Al Qadisiyah": "القادسية",
+})
+
 def team_ar_name(name):
     if not name:
         return name
@@ -5904,9 +5926,21 @@ def localize_competition_items(kind: str, items: list) -> list:
 
             for side in ("home", "away"):
                 team = dict(teams.get(side) or {})
-                team["name_ar"] = team_ar_name(
+                source_team_name = (
                     team.get("name_en") or team.get("name")
                 )
+                existing_team_name_ar = team.get("name_ar")
+
+                if (
+                    existing_team_name_ar
+                    and str(existing_team_name_ar).strip().casefold()
+                    != str(source_team_name or "").strip().casefold()
+                ):
+                    team["name_ar"] = existing_team_name_ar
+                else:
+                    team["name_ar"] = team_ar_name(
+                        source_team_name
+                    )
                 teams[side] = team
 
             item["teams"] = teams
