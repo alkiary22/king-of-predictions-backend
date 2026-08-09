@@ -1443,6 +1443,29 @@ async def get_teams():
     for team in extra_teams:
         add_team(team)
 
+    # ── ملء الشعارات والأسماء المفقودة بالتطابق بالاسم ──
+    _logo_map = {}
+    _id_map = {}
+    for _t in merged:
+        for _k in [_t.get("name_en"), _t.get("name_ar")]:
+            if _k:
+                lk = _k.strip().lower()
+                if _t.get("logo") and lk not in _logo_map:
+                    _logo_map[lk] = _t["logo"]
+                if _t.get("api_football_team_id") and lk not in _id_map:
+                    _id_map[lk] = _t["api_football_team_id"]
+    for _t in merged:
+        if not _t.get("logo"):
+            for _k in [_t.get("name_en"), _t.get("name_ar")]:
+                if _k and _k.strip().lower() in _logo_map:
+                    _t["logo"] = _logo_map[_k.strip().lower()]
+                    break
+        if not _t.get("api_football_team_id"):
+            for _k in [_t.get("name_en"), _t.get("name_ar")]:
+                if _k and _k.strip().lower() in _id_map:
+                    _t["api_football_team_id"] = _id_map[_k.strip().lower()]
+                    break
+
     merged.sort(
         key=lambda team: (
             team.get("name_ar") or team.get("name_en") or ""
@@ -1505,6 +1528,20 @@ async def list_matches(date: Optional[str] = None):
     teams = await get_teams()
     teams_map = {t["code"]: t for t in teams}
 
+    def find_team(code):
+        if not code:
+            return None
+        t = teams_map.get(code)
+        if t:
+            return t
+        # تجربة البادئة البديلة: af: ↔ fd:
+        if ":" in str(code):
+            prefix, tid = str(code).split(":", 1)
+            alt = f"af:{tid}" if prefix == "fd" else f"fd:{tid}" if prefix == "af" else None
+            if alt:
+                return teams_map.get(alt)
+        return None
+
     result = []
     manual_keys = set()
 
@@ -1520,8 +1557,8 @@ async def list_matches(date: Optional[str] = None):
         )
 
         manual_keys.add(key)
-        home = teams_map.get(m.get("home_team"))
-        away = teams_map.get(m.get("away_team"))
+        home = find_team(m.get("home_team"))
+        away = find_team(m.get("away_team"))
 
         if home:
             m["home"] = home
@@ -1545,8 +1582,8 @@ async def list_matches(date: Optional[str] = None):
         if key in manual_keys:
             continue
 
-        home = teams_map.get(m.get("home_team"))
-        away = teams_map.get(m.get("away_team"))
+        home = find_team(m.get("home_team"))
+        away = find_team(m.get("away_team"))
 
         if home:
             m["home"] = home
@@ -1587,7 +1624,7 @@ async def create_match(data: MatchCreate, _staff=Depends(require_staff)):
             return
         if code in codes:
             return
-        if not code.startswith("fd:"):
+        if not (code.startswith("fd:") or code.startswith("hl:")):
             return
         doc = {
             "code": code,
@@ -1597,7 +1634,7 @@ async def create_match(data: MatchCreate, _staff=Depends(require_staff)):
             "logo": logo,
             "type": "club",
         }
-        await db.teams.update_one({"code": code}, {"$set": doc}, upsert=True)
+        await db.football_teams.update_one({"code": code}, {"$set": doc}, upsert=True)
         codes.add(code)
 
     await _ensure_fd_team(
