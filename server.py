@@ -2330,79 +2330,218 @@ async def competition_prediction_stats(
 
 
 @api_router.get("/leaderboard", response_model=List[LeaderboardEntry])
-async def leaderboard():
+async def leaderboard(period: str = "all"):
+    """
+    لوحة المتصدرين:
+    - weekly  = آخر 7 أيام
+    - monthly = آخر 30 يوم
+    - all     = كل الوقت
+
+    لا يتم تعديل total_points للمستخدمين.
+    يتم فقط حساب نقاط الفترة المطلوبة من predictions.
+    """
+
+    from datetime import datetime, timedelta, timezone
+
+    period = (period or "all").lower().strip()
+
+    if period not in {"weekly", "monthly", "all"}:
+        period = "all"
+
+    now = datetime.now(timezone.utc)
+
+    if period == "weekly":
+        period_start = now - timedelta(days=7)
+    elif period == "monthly":
+        period_start = now - timedelta(days=30)
+    else:
+        period_start = None
+
+    lookup_pipeline = [
+        {
+            "$match": {
+                "$expr": {
+                    "$eq": ["$user_id", "$$uid"]
+                }
+            }
+        }
+    ]
+
+    # في الأسبوعي/الشهري نحسب فقط توقعات الفترة.
+    if period_start is not None:
+        lookup_pipeline.append({
+            "$match": {
+                "$expr": {
+                    "$gte": [
+                        {
+                            "$convert": {
+                                "input": "$created_at",
+                                "to": "date",
+                                "onError": datetime(1970, 1, 1, tzinfo=timezone.utc),
+                                "onNull": datetime(1970, 1, 1, tzinfo=timezone.utc),
+                            }
+                        },
+                        period_start,
+                    ]
+                }
+            }
+        })
+
+    lookup_pipeline.append({
+        "$group": {
+            "_id": None,
+            "predictions_count": {"$sum": 1},
+            "total_points": {
+                "$sum": {
+                    "$convert": {
+                        "input": {"$ifNull": ["$points", 0]},
+                        "to": "long",
+                        "onError": 0,
+                        "onNull": 0,
+                    }
+                }
+            },
+            "exact_count": {
+                "$sum": {
+                    "$cond": [
+                        {"$eq": ["$points", 3]},
+                        1,
+                        0
+                    ]
+                }
+            },
+            "correct_outcome_count": {
+                "$sum": {
+                    "$cond": [
+                        {"$eq": ["$points", 1]},
+                        1,
+                        0
+                    ]
+                }
+            },
+            "tiebreak": {
+                "$sum": {
+                    "$cond": [
+                        {"$gt": [{"$ifNull": ["$points", 0]}, 0]},
+                        {
+                            "$toLong": {
+                                "$ifNull": [
+                                    {
+                                        "$convert": {
+                                            "input": "$created_at",
+                                            "to": "date",
+                                            "onError": datetime(1970, 1, 1, tzinfo=timezone.utc),
+                                            "onNull": datetime(1970, 1, 1, tzinfo=timezone.utc),
+                                        }
+                                    },
+                                    datetime(1970, 1, 1, tzinfo=timezone.utc)
+                                ]
+                            }
+                        },
+                        0
+                    ]
+                }
+            }
+        }
+    })
+
     pipeline = [
-        {"$match": {"role": {"$ne": "admin"}}},
-        {"$project": {
-            "_id": 0,
-            "user_id": "$id",
-            "name": 1,
-            "avatar": 1,
-            "total_points": {"$ifNull": ["$total_points", 0]},
-        }},
-        {"$lookup": {
-            "from": "predictions",
-            "let": {"uid": "$user_id"},
-            "pipeline": [
-                {"$match": {"$expr": {"$eq": ["$user_id", "$$uid"]}}},
-                {"$group": {
-                    "_id": None,
-                    "predictions_count": {"$sum": 1},
-                    "exact_count": {
-                        "$sum": {"$cond": [{"$eq": ["$points", 3]}, 1, 0]}
-                    },
-                    "correct_outcome_count": {
-                        "$sum": {"$cond": [{"$eq": ["$points", 1]}, 1, 0]}
-                    },
-                    "tiebreak": {
-                        "$sum": {
-                            "$cond": [
-                                {"$gt": ["$points", 0]},
-                                {"$toLong": {"$ifNull": [{"$toDate": "$created_at"}, "1970-01-01T00:00:00Z"]}},
+        {
+            "$match": {
+                "role": {"$ne": "admin"}
+            }
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "user_id": "$id",
+                "name": 1,
+                "avatar": 1,
+                "total_points_all": {
+                    "$ifNull": ["$total_points", 0]
+                },
+            }
+        },
+        {
+            "$lookup": {
+                "from": "predictions",
+                "let": {"uid": "$user_id"},
+                "pipeline": lookup_pipeline,
+                "as": "stats"
+            }
+        },
+        {
+            "$addFields": {
+                "stats": {
+                    "$arrayElemAt": ["$stats", 0]
+                }
+            }
+        },
+        {
+            "$addFields": {
+                "predictions_count": {
+                    "$ifNull": ["$stats.predictions_count", 0]
+                },
+                "exact_count": {
+                    "$ifNull": ["$stats.exact_count", 0]
+                },
+                "correct_outcome_count": {
+                    "$ifNull": ["$stats.correct_outcome_count", 0]
+                },
+                "period_points": {
+                    "$ifNull": ["$stats.total_points", 0]
+                },
+                "_tiebreak": {
+                    "$cond": [
+                        {
+                            "$gt": [
+                                {"$ifNull": ["$stats.tiebreak", 0]},
                                 0
                             ]
-                        }
-                    }
-                }}
-            ],
-            "as": "stats"
-        }},
-        {"$addFields": {
-            "stats": {"$arrayElemAt": ["$stats", 0]}
-        }},
-        {"$addFields": {
-            "predictions_count": {"$ifNull": ["$stats.predictions_count", 0]},
-            "exact_count": {"$ifNull": ["$stats.exact_count", 0]},
-            "correct_outcome_count": {"$ifNull": ["$stats.correct_outcome_count", 0]},
-            "_tiebreak": {
-                "$cond": [
-                    {"$gt": [{"$ifNull": ["$stats.tiebreak", 0]}, 0]},
-                    {"$ifNull": ["$stats.tiebreak", 0]},
-                    999999999999999999
-                ]
+                        },
+                        {"$ifNull": ["$stats.tiebreak", 0]},
+                        999999999999999999
+                    ]
+                }
             }
-        }},
-        {"$sort": {
-            "total_points": -1,
-            "exact_count": -1,
-            "correct_outcome_count": -1,
-            "_tiebreak": 1
-        }},
-        {"$limit": 100},
-        {"$project": {
-            "user_id": 1,
-            "name": 1,
-            "avatar": 1,
-            "total_points": 1,
-            "predictions_count": 1,
-            "exact_count": 1,
-            "correct_outcome_count": 1
-        }}
+        },
+        {
+            "$addFields": {
+                "display_points": (
+                    "$total_points_all"
+                    if period == "all"
+                    else "$period_points"
+                )
+            }
+        },
+        {
+            "$sort": {
+                "display_points": -1,
+                "exact_count": -1,
+                "correct_outcome_count": -1,
+                "_tiebreak": 1
+            }
+        },
+        {
+            "$limit": 100
+        },
+        {
+            "$project": {
+                "user_id": 1,
+                "name": 1,
+                "avatar": 1,
+                "total_points": "$display_points",
+                "predictions_count": 1,
+                "exact_count": 1,
+                "correct_outcome_count": 1
+            }
+        }
     ]
 
     rows = await db.users.aggregate(pipeline).to_list(100)
 
     out = []
+
     for i, r in enumerate(rows, start=1):
         out.append({
             "user_id": r["user_id"],
@@ -2411,9 +2550,12 @@ async def leaderboard():
             "total_points": int(r.get("total_points", 0)),
             "predictions_count": int(r.get("predictions_count", 0)),
             "exact_count": int(r.get("exact_count", 0)),
-            "correct_outcome_count": int(r.get("correct_outcome_count", 0)),
+            "correct_outcome_count": int(
+                r.get("correct_outcome_count", 0)
+            ),
             "rank": i,
         })
+
     return out
 
 
