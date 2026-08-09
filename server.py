@@ -411,7 +411,16 @@ TEAM_AR_NAMES = {
     "Málaga CF": "مالقة",
     "Real Betis Balompié": "ريال بيتيس",
     "Real Sociedad de Fútbol": "ريال سوسيداد",
-    "Athletic Club": "أتلتيك بلباو",}
+    "Athletic Club": "أتلتيك بلباو",    "Al-Hilal Saudi": "الهلال",
+    "Al Taawoun FC": "التعاون",
+    "Al Suqoor": "الصقور",
+    "Al Diriyah": "الدرعية",
+    "Al-Ahli Saudi": "الأهلي",
+    "Al-Qadisiyah": "القادسية",
+    "Abha": "أبها",
+    "Al-Hazem": "الحزم",
+    "Al-Faisaly": "الفيصلي",
+}
 
 LEAGUE_AR_NAMES = {
     "Premier League": "الدوري الإنجليزي الممتاز",
