@@ -1441,6 +1441,15 @@ class MatchCreate(BaseModel):
     away_team_name_en: Optional[str] = None
     away_team_logo: Optional[str] = None
 
+    # بيانات البطولة الاختيارية
+    league_id: Optional[int] = None
+    league_name_en: Optional[str] = None
+    league_name_ar: Optional[str] = None
+    league_logo: Optional[str] = None
+    season: Optional[int] = None
+    round_en: Optional[str] = None
+    round_ar: Optional[str] = None
+
 
 class MatchUpdate(BaseModel):
     home_team: Optional[str] = None
@@ -2095,10 +2104,229 @@ async def list_matches(date: Optional[str] = None):
     return result
 
 
+
+# ============================================================
+# Competition duplicate protection
+# ============================================================
+
+def _competition_team_id(code):
+    """
+    يحول أكواد الفرق مثل:
+      fd:57
+      af:57
+      57
+    إلى رقم الفريق.
+    """
+    if code is None:
+        return None
+
+    value = str(code).strip()
+
+    if ":" in value:
+        value = value.split(":", 1)[1].strip()
+
+    return int(value) if value.isdigit() else None
+
+
+def _fixture_date(fixture):
+    value = str(
+        fixture.get("kickoff_utc")
+        or fixture.get("kickoff")
+        or ""
+    ).strip()
+
+    return value[:10]
+
+
+async def find_competition_fixture_for_match(
+    home_team,
+    away_team,
+    match_date,
+    external_fixture_id=None,
+):
+    """
+    يبحث في competition_data عن المباراة المقابلة.
+
+    - لا يعتبر كأس العالم مصدرًا للإضافة اليدوية.
+    - إذا وجد external_fixture_id يطابقه مباشرة.
+    - وإلا يطابق رقمَي الفريق + التاريخ.
+    """
+
+    target_home_id = _competition_team_id(home_team)
+    target_away_id = _competition_team_id(away_team)
+
+    target_fixture_id = None
+
+    if external_fixture_id is not None:
+        raw = str(external_fixture_id).strip()
+
+        if ":" in raw:
+            raw = raw.split(":", 1)[1].strip()
+
+        if raw.isdigit():
+            target_fixture_id = int(raw)
+
+    cursor = db.competition_data.find(
+        {"kind": "matches"},
+        {
+            "_id": 0,
+            "league_id": 1,
+            "season": 1,
+            "items": 1,
+        },
+    )
+
+    async for doc in cursor:
+        league_id = doc.get("league_id")
+
+        try:
+            league_id = int(league_id)
+        except Exception:
+            league_id = 0
+
+        # كأس العالم مستثنى من هذا المنع
+        if league_id == 1:
+            continue
+
+        items = doc.get("items") or []
+
+        for fixture in items:
+            if not isinstance(fixture, dict):
+                continue
+
+            fixture_id = fixture.get("fixture_id")
+
+            try:
+                fixture_id_int = int(fixture_id)
+            except Exception:
+                fixture_id_int = None
+
+            # ------------------------------------------------
+            # 1) تطابق مباشر بواسطة رقم المباراة
+            # ------------------------------------------------
+            if (
+                target_fixture_id is not None
+                and fixture_id_int == target_fixture_id
+            ):
+                return {
+                    "fixture": fixture,
+                    "league_id": league_id,
+                    "season": doc.get("season"),
+                }
+
+            # ------------------------------------------------
+            # 2) تطابق الفريقين + التاريخ
+            # ------------------------------------------------
+            if target_home_id is None or target_away_id is None:
+                continue
+
+            if _fixture_date(fixture) != str(match_date)[:10]:
+                continue
+
+            teams = fixture.get("teams") or {}
+            home = teams.get("home") or {}
+            away = teams.get("away") or {}
+
+            try:
+                home_id = int(home.get("id"))
+                away_id = int(away.get("id"))
+            except Exception:
+                continue
+
+            if (
+                home_id == target_home_id
+                and away_id == target_away_id
+            ):
+                return {
+                    "fixture": fixture,
+                    "league_id": league_id,
+                    "season": doc.get("season"),
+                }
+
+    return None
+
+
+async def link_existing_match_to_competition(
+    existing,
+    competition_info,
+    external_provider,
+):
+    """
+    يربط المباراة اليدوية الموجودة بالبطولة بدل إنشاء مباراة ثانية.
+    """
+
+    fixture = competition_info["fixture"]
+    league_id = competition_info["league_id"]
+    season = competition_info.get("season")
+
+    league = fixture.get("league") or {}
+
+    fixture_id = fixture.get("fixture_id")
+
+    update = {
+        "league_id": league_id,
+        "league_name_en": league.get("name_en") or league.get("name"),
+        "league_name_ar": league.get("name_ar") or league.get("name_en"),
+        "league_logo": league.get("logo"),
+        "season": league.get("season") or season,
+        "round_en": league.get("round_en"),
+        "round_ar": league.get("round_ar"),
+        "external_provider": external_provider or "fd",
+        "external_fixture_id": int(fixture_id),
+    }
+
+    await db.matches.update_one(
+        {"id": existing["id"]},
+        {"$set": update},
+    )
+
+    existing.update(update)
+
+    return existing
+
+
 @api_router.post("/matches", response_model=MatchModel)
 async def create_match(data: MatchCreate, _staff=Depends(require_staff)):
     if data.home_team == data.away_team:
         raise HTTPException(status_code=400, detail="لا يمكن أن يكون الفريقان متطابقين")
+
+    # ========================================================
+    # حماية من إضافة مباراة يدويًا إذا كانت موجودة في البطولات
+    # ========================================================
+
+    incoming_external_id = getattr(data, "external_fixture_id", None)
+    incoming_provider = getattr(data, "external_provider", None) or "fd"
+
+    competition_fixture = await find_competition_fixture_for_match(
+        home_team=data.home_team,
+        away_team=data.away_team,
+        match_date=data.match_date,
+        external_fixture_id=incoming_external_id,
+    )
+
+    # إذا كانت الإضافة يدوية والمباراة موجودة ضمن البطولات:
+    # امنع إنشاء نسخة يدوية.
+    if (
+        incoming_external_id is None
+        and competition_fixture is not None
+    ):
+        fixture = competition_fixture["fixture"]
+        league = fixture.get("league") or {}
+
+        league_name = (
+            league.get("name_ar")
+            or league.get("name_en")
+            or "البطولات"
+        )
+
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"هذه المباراة موجودة ضمن {league_name}. "
+                "استخدم «إضافة من البطولات» لإضافتها وربطها بالدوري."
+            ),
+        )
+
     # السماح بجميع الفرق التي يعرضها /teams للإدارة
     available_teams = await get_teams()
 
@@ -2209,6 +2437,53 @@ async def create_match(data: MatchCreate, _staff=Depends(require_staff)):
             status_code=400,
             detail=f"رمز الفريق الثاني غير صالح: {data.away_team}"
         )
+    # ========================================================
+    # بيانات البطولة
+    # إذا كانت المباراة قادمة من «إضافة من البطولات»
+    # نأخذ بيانات البطولة من المصدر نفسه.
+    # ========================================================
+
+    resolved_league_id = getattr(data, "league_id", None)
+    resolved_league_name_en = getattr(data, "league_name_en", None)
+    resolved_league_name_ar = getattr(data, "league_name_ar", None)
+    resolved_league_logo = getattr(data, "league_logo", None)
+    resolved_season = getattr(data, "season", None)
+    resolved_round_en = getattr(data, "round_en", None)
+    resolved_round_ar = getattr(data, "round_ar", None)
+
+    if competition_fixture is not None:
+        fixture = competition_fixture["fixture"]
+        league = fixture.get("league") or {}
+
+        resolved_league_id = competition_fixture["league_id"]
+        resolved_league_name_en = (
+            league.get("name_en")
+            or league.get("name")
+            or resolved_league_name_en
+        )
+        resolved_league_name_ar = (
+            league.get("name_ar")
+            or resolved_league_name_en
+            or resolved_league_name_ar
+        )
+        resolved_league_logo = (
+            league.get("logo")
+            or resolved_league_logo
+        )
+        resolved_season = (
+            league.get("season")
+            or competition_fixture.get("season")
+            or resolved_season
+        )
+        resolved_round_en = (
+            league.get("round_en")
+            or resolved_round_en
+        )
+        resolved_round_ar = (
+            league.get("round_ar")
+            or resolved_round_ar
+        )
+
     match = {
         "id": str(uuid.uuid4()),
         "home_team": data.home_team,
@@ -2221,14 +2496,15 @@ async def create_match(data: MatchCreate, _staff=Depends(require_staff)):
         "stage": data.stage,
         "group_name": data.group_name,
 
-        # بيانات البطولة — لربط المباراة بالدوري الصحيح
-        "league_id": data.league_id,
-        "league_name_en": data.league_name_en,
-        "league_name_ar": data.league_name_ar,
-        "league_logo": data.league_logo,
-        "season": data.season,
-        "round_en": data.round_en,
-        "round_ar": data.round_ar,
+        # بيانات البطولة
+        "league_id": resolved_league_id,
+        "league_name_en": resolved_league_name_en,
+        "league_name_ar": resolved_league_name_ar,
+        "league_logo": resolved_league_logo,
+        "season": resolved_season,
+        "round_en": resolved_round_en,
+        "round_ar": resolved_round_ar,
+
         "home_score": None,
         "away_score": None,
         "status": "scheduled",
@@ -2247,8 +2523,9 @@ async def create_match(data: MatchCreate, _staff=Depends(require_staff)):
         match['external_fixture_id'] = int(raw)
         match['external_provider'] = provider or 'fd'
 
-        # --- dedupe match by external_fixture_id ---
-        # If the same fixture is added again from competitions, return the existing match (no duplicates).
+        # ====================================================
+        # منع التكرار بواسطة external_fixture_id
+        # ====================================================
         existing = await db.matches.find_one(
             {
                 "external_fixture_id": match.get("external_fixture_id"),
@@ -2256,8 +2533,29 @@ async def create_match(data: MatchCreate, _staff=Depends(require_staff)):
             },
             {"_id": 0},
         )
+
         if existing:
             return existing
+
+        # ====================================================
+        # إذا كانت المباراة أضيفت يدويًا سابقًا:
+        # اربط نفس المباراة بالبطولة بدل إنشاء نسخة جديدة.
+        # ====================================================
+        existing_manual = await db.matches.find_one(
+            {
+                "home_team": data.home_team,
+                "away_team": data.away_team,
+                "match_date": data.match_date,
+            },
+            {"_id": 0},
+        )
+
+        if existing_manual:
+            return await link_existing_match_to_competition(
+                existing_manual,
+                competition_fixture,
+                match.get("external_provider", "fd"),
+            )
 
 
     try:
