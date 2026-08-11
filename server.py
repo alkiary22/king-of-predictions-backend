@@ -460,7 +460,319 @@ TEAM_AR_NAMES.update({
     "Al Qadisiyah": "القادسية",
 })
 
-def team_ar_name(en_name: str) -> str:
+
+# =========================================================
+# الأسماء العربية الرسمية للأندية والمنتخبات
+# =========================================================
+
+OFFICIAL_TEAM_AR = {
+    # 🇸🇦 Saudi Pro League
+    "Al-Hilal Saudi": "الهلال",
+    "Al Hilal Saudi": "الهلال",
+    "Al-Hilal": "الهلال",
+    "Al Hilal": "الهلال",
+
+    "Al-Nassr": "النصر",
+    "Al Nassr": "النصر",
+    "Al-Nassr FC": "النصر",
+
+    "Al-Ahli Saudi": "الأهلي",
+    "Al Ahli Saudi": "الأهلي",
+    "Al-Ahli": "الأهلي",
+    "Al Ahli": "الأهلي",
+
+    "Al-Ittihad": "الاتحاد",
+    "Al Ittihad": "الاتحاد",
+    "Al-Ittihad Jeddah": "الاتحاد",
+
+    "Al-Ettifaq": "الاتفاق",
+    "Al Ettifaq": "الاتفاق",
+
+    "Al-Fateh": "الفتح",
+    "Al Fateh": "الفتح",
+
+    "Al-Fayha": "الفيحاء",
+    "Al Fayha": "الفيحاء",
+
+    "Al-Taawoun": "التعاون",
+    "Al Taawoun": "التعاون",
+
+    "Al-Riyadh": "الرياض",
+    "Al Riyadh": "الرياض",
+
+    "Al-Qadsiah": "القادسية",
+    "Al Qadsiah": "القادسية",
+
+    "Al-Khaleej": "الخليج",
+    "Al Khaleej": "الخليج",
+
+    "Al-Wehda": "الوحدة",
+    "Al Wehda": "الوحدة",
+
+    "Al-Raed": "الرائد",
+    "Al Raed": "الرائد",
+
+    "Al-Okhdood": "الأخدود",
+    "Al Okhdood": "الأخدود",
+
+    "Al-Kholood": "الخلود",
+    "Al Kholood": "الخلود",
+
+    "Damac": "ضمك",
+    "Abha": "أبها",
+    "Al-Hazem": "الحزم",
+    "Al Hazem": "الحزم",
+
+    # 🇪🇸 La Liga
+    "Real Madrid": "ريال مدريد",
+    "Barcelona": "برشلونة",
+    "Atletico Madrid": "أتلتيكو مدريد",
+    "Atlético Madrid": "أتلتيكو مدريد",
+    "Athletic Club": "أتلتيك بلباو",
+    "Athletic Bilbao": "أتلتيك بلباو",
+    "Real Sociedad": "ريال سوسيداد",
+    "Real Betis": "ريال بيتيس",
+    "Villarreal": "فياريال",
+    "Valencia": "فالنسيا",
+    "Sevilla": "إشبيلية",
+    "Getafe": "خيتافي",
+    "Girona": "جيرونا",
+    "Celta Vigo": "سيلتا فيغو",
+    "Osasuna": "أوساسونا",
+    "Mallorca": "ريال مايوركا",
+    "Rayo Vallecano": "رايو فاييكانو",
+    "Espanyol": "إسبانيول",
+    "Alaves": "ألافيس",
+    "Alavés": "ألافيس",
+
+    # 🏴 Premier League
+    "Manchester City": "مانشستر سيتي",
+    "Manchester United": "مانشستر يونايتد",
+    "Liverpool": "ليفربول",
+    "Arsenal": "أرسنال",
+    "Chelsea": "تشيلسي",
+    "Tottenham": "توتنهام",
+    "Tottenham Hotspur": "توتنهام",
+    "Newcastle United": "نيوكاسل يونايتد",
+    "Aston Villa": "أستون فيلا",
+    "West Ham United": "وست هام يونايتد",
+    "West Ham": "وست هام يونايتد",
+    "Everton": "إيفرتون",
+    "Crystal Palace": "كريستال بالاس",
+    "Fulham": "فولهام",
+    "Brentford": "برينتفورد",
+    "Brighton": "برايتون",
+    "Brighton & Hove Albion": "برايتون",
+    "Wolverhampton Wanderers": "وولفرهامبتون",
+    "Wolves": "وولفرهامبتون",
+    "Nottingham Forest": "نوتنغهام فورست",
+    "Leicester City": "ليستر سيتي",
+    "Southampton": "ساوثهامبتون",
+    "Burnley": "بيرنلي",
+    "Leeds United": "ليدز يونايتد",
+    "Ipswich Town": "إيبسويتش تاون",
+
+    # 🇮🇹 Serie A
+    "Inter": "إنتر ميلان",
+    "Inter Milan": "إنتر ميلان",
+    "Internazionale": "إنتر ميلان",
+    "AC Milan": "ميلان",
+    "Milan": "ميلان",
+    "Juventus": "يوفنتوس",
+    "Napoli": "نابولي",
+    "Roma": "روما",
+    "Lazio": "لاتسيو",
+    "Atalanta": "أتالانتا",
+    "Fiorentina": "فيورنتينا",
+    "Bologna": "بولونيا",
+    "Torino": "تورينو",
+    "Genoa": "جنوى",
+    "Udinese": "أودينيزي",
+    "Monza": "مونزا",
+    "Parma": "بارما",
+    "Cagliari": "كالياري",
+    "Como": "كومو",
+    "Lecce": "ليتشي",
+    "Empoli": "إمبولي",
+
+    # 🇩🇪 Bundesliga
+    "Bayern Munich": "بايرن ميونخ",
+    "Bayern München": "بايرن ميونخ",
+    "Borussia Dortmund": "بوروسيا دورتموند",
+    "Bayer Leverkusen": "باير ليفركوزن",
+    "RB Leipzig": "لايبزيغ",
+    "Eintracht Frankfurt": "آينتراخت فرانكفورت",
+    "VfB Stuttgart": "شتوتغارت",
+    "Wolfsburg": "فولفسبورغ",
+    "SC Freiburg": "فرايبورغ",
+    "Borussia Monchengladbach": "بوروسيا مونشنغلادباخ",
+    "Borussia Mönchengladbach": "بوروسيا مونشنغلادباخ",
+    "Mainz": "ماينز",
+    "Werder Bremen": "فيردر بريمن",
+    "Union Berlin": "يونيون برلين",
+    "Hoffenheim": "هوفنهايم",
+    "Augsburg": "أوغسبورغ",
+
+    # 🇫🇷 Ligue 1
+    "Paris Saint-Germain": "باريس سان جيرمان",
+    "Paris Saint Germain": "باريس سان جيرمان",
+    "PSG": "باريس سان جيرمان",
+    "Marseille": "مارسيليا",
+    "Monaco": "موناكو",
+    "Lyon": "ليون",
+    "Lille": "ليل",
+    "Nice": "نيس",
+    "Lens": "لانس",
+    "Rennes": "رين",
+    "Nantes": "نانت",
+    "Montpellier": "مونبلييه",
+    "Strasbourg": "ستراسبورغ",
+    "Toulouse": "تولوز",
+    "Brest": "بريست",
+    "Reims": "ريمس",
+    "Saint Etienne": "سانت إتيان",
+
+    # 🇳🇱 Eredivisie
+    "Ajax": "أياكس",
+    "PSV Eindhoven": "آيندهوفن",
+    "PSV": "آيندهوفن",
+    "Feyenoord": "فينورد",
+    "AZ Alkmaar": "ألكمار",
+    "Twente": "تفنتي",
+
+    # 🇵🇹 Portugal
+    "Benfica": "بنفيكا",
+    "Porto": "بورتو",
+    "Sporting CP": "سبورتينغ لشبونة",
+    "Sporting Lisbon": "سبورتينغ لشبونة",
+    "Braga": "سبورتينغ براغا",
+
+    # 🇹🇷 Turkey
+    "Galatasaray": "غلطة سراي",
+    "Fenerbahce": "فنربخشة",
+    "Fenerbahçe": "فنربخشة",
+    "Besiktas": "بشكتاش",
+    "Beşiktaş": "بشكتاش",
+    "Trabzonspor": "طرابزون سبور",
+
+    # 🇧🇪 Belgium
+    "Club Brugge": "كلوب بروج",
+    "Anderlecht": "أندرلخت",
+    "Genk": "جينك",
+    "Union Saint-Gilloise": "سانت جيلواز",
+
+    # 🇧🇷 Brazil
+    "Flamengo": "فلامنغو",
+    "Palmeiras": "بالميراس",
+    "Santos": "سانتوس",
+    "Corinthians": "كورينثيانز",
+    "Sao Paulo": "ساو باولو",
+    "São Paulo": "ساو باولو",
+    "Fluminense": "فلومينينسي",
+    "Botafogo": "بوتافوغو",
+    "Gremio": "غريميو",
+    "Grêmio": "غريميو",
+    "Internacional": "إنترناسيونال",
+
+    # 🇦🇷 Argentina
+    "River Plate": "ريفير بليت",
+    "Boca Juniors": "بوكا جونيورز",
+    "Racing Club": "راسينغ كلوب",
+    "Independiente": "إنديبندينتي",
+
+    # 🌍 National Teams
+    "Brazil": "البرازيل",
+    "Argentina": "الأرجنتين",
+    "France": "فرنسا",
+    "Spain": "إسبانيا",
+    "Germany": "ألمانيا",
+    "England": "إنجلترا",
+    "Portugal": "البرتغال",
+    "Italy": "إيطاليا",
+    "Netherlands": "هولندا",
+    "Belgium": "بلجيكا",
+    "Croatia": "كرواتيا",
+    "Morocco": "المغرب",
+    "Japan": "اليابان",
+    "South Korea": "كوريا الجنوبية",
+    "Mexico": "المكسيك",
+    "United States": "الولايات المتحدة",
+    "USA": "الولايات المتحدة",
+    "Canada": "كندا",
+    "Colombia": "كولومبيا",
+    "Uruguay": "الأوروغواي",
+    "Paraguay": "باراغواي",
+    "Saudi Arabia": "السعودية",
+    "Australia": "أستراليا",
+    "Qatar": "قطر",
+    "Egypt": "مصر",
+    "Algeria": "الجزائر",
+    "Tunisia": "تونس",
+
+    "Al Shabab": "الشباب",
+    "Al-Shabab": "الشباب",
+    "Al Shabab FC": "الشباب",
+    "Al Diriyah": "الدرعية",
+    "Al-Diriyah": "الدرعية",
+    "Al Diriyah FC": "الدرعية",
+    "Al-Qadisiyah": "القادسية",
+    "Al Qadisiyah": "القادسية",
+    "Al-Qadisiyah FC": "القادسية",
+    "Al-Ittihad FC": "الاتحاد",
+    "Al Ittihad FC": "الاتحاد",
+    "Al-Fateh SC": "الفتح",
+    "Al Fateh SC": "الفتح",
+    "Al-Faisaly": "الفيصلي",
+    "Al Faisaly": "الفيصلي",
+    "Al-Faisaly FC": "الفيصلي",
+    "Al Kholood Club": "الخلود",
+    "Club Atlético de Madrid": "أتلتيكو مدريد",
+    "Atletico de Madrid": "أتلتيكو مدريد",
+    "Real Madrid CF": "ريال مدريد",
+    "FC Barcelona": "برشلونة",
+    "Villarreal CF": "فياريال",
+    "Valencia CF": "فالنسيا",
+    "Elche CF": "إلتشي",
+    "Elche": "إلتشي",
+    "RCD Espanyol de Barcelona": "إسبانيول",
+    "RCD Espanyol": "إسبانيول",
+    "Real Betis Balompié": "ريال بيتيس",
+    "Real Sociedad de Fútbol": "ريال سوسيداد",
+    "Málaga CF": "مالقا",
+    "Malaga CF": "مالقا",
+    "Málaga": "مالقا",
+    "Malaga": "مالقا",
+    "Udinese Calcio": "أودينيزي",
+    "Como 1907": "كومو",
+    "AS Roma": "روما",
+    "FC Bayern Munich": "بايرن ميونخ",
+    "Olympique Marseille": "مارسيليا",
+    "Olympique Lyonnais": "ليون",
+    "AS Monaco": "موناكو",
+    "Lille OSC": "ليل",
+    "OGC Nice": "نيس",
+    "SL Benfica": "بنفيكا",
+    "FC Porto": "بورتو",
+}
+
+def _legacy_team_ar_name(en_name: str) -> str:
+    # الاسم العربي الرسمي أولاً، ثم الترجمة الحالية كـ fallback.
+    if en_name:
+        official = OFFICIAL_TEAM_AR.get(str(en_name).strip())
+        if official:
+            return official
+
+    # الاسم الرسمي أولاً — يمنع الترجمة/النطق الآلي الخاطئ
+    if en_name:
+        raw_name = str(en_name).strip()
+        if raw_name in OFFICIAL_TEAM_AR:
+            return OFFICIAL_TEAM_AR[raw_name]
+
+        folded = raw_name.casefold()
+        for official_name, arabic_name in OFFICIAL_TEAM_AR.items():
+            if official_name.casefold() == folded:
+                return arabic_name
+
     """
     تعريب أسماء الفرق:
     - ترجمة كلمات شائعة (United/City/Club...)
@@ -579,6 +891,84 @@ def team_ar_name(en_name: str) -> str:
 
     ar = " ".join([x for x in ar_parts if x]).strip()
     return ar or name
+
+
+
+def team_ar_name(en_name: str) -> str:
+    """
+    الاسم العربي الرسمي للنادي.
+
+    الأولوية:
+    1. OFFICIAL_TEAM_AR
+    2. الاسم العربي الموجود مسبقًا إن كان مناسبًا
+    3. الترجمة/الترانسلِت الحالية كـ fallback
+
+    مهم:
+    لا نغير الاسم الإنجليزي الأصلي.
+    """
+
+    if en_name is None:
+        return ""
+
+    name = str(en_name).strip()
+
+    if not name:
+        return ""
+
+    # --------------------------------------------------------
+    # الاسم الرسمي — exact match
+    # --------------------------------------------------------
+    try:
+        official = OFFICIAL_TEAM_AR.get(name)
+
+        if official:
+            return str(official).strip()
+    except Exception:
+        pass
+
+    # --------------------------------------------------------
+    # الاسم الرسمي — case-insensitive
+    # --------------------------------------------------------
+    try:
+        name_cf = name.casefold()
+
+        for key, value in OFFICIAL_TEAM_AR.items():
+            if str(key).strip().casefold() == name_cf:
+                if value:
+                    return str(value).strip()
+    except Exception:
+        pass
+
+    # --------------------------------------------------------
+    # تنظيف بسيط للأسماء التي تأتي من مزودي البيانات
+    # مثل CF / FC / SC / AFC
+    # --------------------------------------------------------
+    normalized = re.sub(
+        r"\s+(CF|FC|SC|AFC|AC)$",
+        "",
+        name,
+        flags=re.IGNORECASE,
+    ).strip()
+
+    if normalized and normalized != name:
+        try:
+            official = OFFICIAL_TEAM_AR.get(normalized)
+            if official:
+                return str(official).strip()
+
+            normalized_cf = normalized.casefold()
+
+            for key, value in OFFICIAL_TEAM_AR.items():
+                if str(key).strip().casefold() == normalized_cf:
+                    if value:
+                        return str(value).strip()
+        except Exception:
+            pass
+
+    # --------------------------------------------------------
+    # fallback إلى النظام القديم
+    # --------------------------------------------------------
+    return _legacy_team_ar_name(name)
 
 
 def league_ar_name(name: str | None):
