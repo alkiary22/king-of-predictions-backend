@@ -21,3 +21,4 @@ backend.log
 backups/
 *.bak
 
+server.py.bak*

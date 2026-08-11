@@ -460,36 +460,125 @@ TEAM_AR_NAMES.update({
     "Al Qadisiyah": "القادسية",
 })
 
-def team_ar_name(name):
+def team_ar_name(en_name: str) -> str:
+    """
+    تعريب أسماء الفرق:
+    - ترجمة كلمات شائعة (United/City/Club...)
+    - تعريب حرفي (Transliteration) لأي اسم غير موجود بالقاموس
+    """
+    import re
+
+    if not en_name:
+        return ""
+
+    name = str(en_name).strip()
     if not name:
-        return name
+        return ""
 
-    name = str(name).strip()
+    # تنظيف لاحقات شائعة
+    name = re.sub(r"\b(FC|AFC|CF|SC|SFC|SSC|AC|AS|CD|UD)\b\.?", "", name, flags=re.I)
+    name = re.sub(r"\s+", " ", name).strip()
 
-    aliases = [
-        name,
-        name.replace(" FC", ""),
-        name.replace(" CF", ""),
-        name.replace(" AFC", ""),
-        name.replace(" AC", ""),
-        name.replace(" SC", ""),
-        name.replace(" UD", ""),
-        name.replace(" CD", ""),
-        name.replace(" Club", ""),
-        name.replace(" Football Club", ""),
-        name.replace(" Club Atlético de ", ""),
-        name.replace(" Real ", ""),
-        name.replace(" RC ", ""),
-        name.replace(" RCD ", ""),
-        name.replace(" CA ", ""),
-    ]
+    # قاموس سريع لأشهر الكلمات (يشتغل مع أي دوري)
+    word_map = {
+        "United": "يونايتد",
+        "City": "سيتي",
+        "Town": "تاون",
+        "County": "كاونتي",
+        "Rangers": "رينجرز",
+        "Wanderers": "واندررز",
+        "Athletic": "أتلتيك",
+        "Sporting": "سبورتينغ",
+        "Real": "ريال",
+        "Club": "",
+        "Deportivo": "ديبورتيفو",
+        "Borussia": "بوروسيا",
+        "Bayern": "بايرن",
+        "Saint": "سانت",
+        "St": "سانت",
+        "Inter": "إنتر",
+        "Union": "يونيون",
+        "Olympique": "أولمبيك",
+    }
 
-    for alias in aliases:
-        alias = alias.strip()
-        if alias in TEAM_AR_NAMES:
-            return TEAM_AR_NAMES[alias]
+    full_map = {
+        # أمثلة (أضف ما تريد هنا مستقبلاً)
+        "Real Madrid": "ريال مدريد",
+        "Barcelona": "برشلونة",
+        "Manchester United": "مانشستر يونايتد",
+        "Manchester City": "مانشستر سيتي",
+        "Arsenal": "أرسنال",
+        "Liverpool": "ليفربول",
+        "Chelsea": "تشيلسي",
+        "Tottenham Hotspur": "توتنهام",
+        "Coventry City": "كوفنتري سيتي",
+        "Hull City": "هال سيتي",
+        "Sunderland": "سندرلاند",
+        "Ipswich Town": "إيبسويتش تاون",
+    }
 
-    return TEAM_AR_NAMES.get(name, name)
+    # لو الاسم مطابق لقاموس كامل
+    if name in full_map:
+        return full_map[name]
+
+    def translit_word(w: str) -> str:
+        w0 = re.sub(r"[^A-Za-z0-9]", "", w)
+        if not w0:
+            return ""
+        wlow = w0.lower()
+
+        # digraphs
+        wlow = (wlow
+            .replace("sch", "sh")
+            .replace("sh", "ش")
+            .replace("ch", "تش")
+            .replace("th", "ث")
+            .replace("ph", "ف")
+            .replace("gh", "غ")
+            .replace("kh", "خ")
+            .replace("ou", "و")
+            .replace("oo", "و")
+            .replace("ee", "ي")
+            .replace("ai", "اي")
+            .replace("ay", "اي")
+        )
+
+        # mapping single letters
+        m = {
+            "a":"ا","b":"ب","c":"ك","d":"د","e":"ي","f":"ف","g":"ج","h":"ه",
+            "i":"ي","j":"ج","k":"ك","l":"ل","m":"م","n":"ن","o":"و","p":"ب",
+            "q":"ق","r":"ر","s":"س","t":"ت","u":"و","v":"ف","w":"و","x":"كس",
+            "y":"ي","z":"ز",
+            "0":"0","1":"1","2":"2","3":"3","4":"4","5":"5","6":"6","7":"7","8":"8","9":"9",
+        }
+
+        # تحسين بسيط: تجاهل e داخل الكلمة إذا حولها حروف ساكنة (يساعد Coventry -> كوفنتري)
+        out = []
+        for i, ch in enumerate(wlow):
+            if ch == "e" and 0 < i < len(wlow)-1:
+                prevc = wlow[i-1]
+                nextc = wlow[i+1]
+                vowels = set("aeiouy")
+                if prevc not in vowels and nextc not in vowels:
+                    continue
+            out.append(m.get(ch, ch))
+        return "".join(out)
+
+    parts = name.split()
+    ar_parts = []
+    for w in parts:
+        # لو كلمة معروفة
+        if w in word_map:
+            if word_map[w]:
+                ar_parts.append(word_map[w])
+            continue
+
+        # لو تركيب جزئي موجود في full_map (مثل "Coventry City")
+        # نجرب بدون لاحقات
+        ar_parts.append(translit_word(w))
+
+    ar = " ".join([x for x in ar_parts if x]).strip()
+    return ar or name
 
 
 def league_ar_name(name: str | None):
