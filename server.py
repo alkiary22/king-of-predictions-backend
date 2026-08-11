@@ -1423,6 +1423,16 @@ class MatchCreate(BaseModel):
     group_name: Optional[str] = None
     external_provider: Optional[str] = None
     external_fixture_id: Optional[str] = None  # accepts "fd:564628" or "564628"
+
+    # بيانات البطولة — تستخدم لربط المباراة بتبويب الدوري
+    league_id: Optional[int] = None
+    league_name_en: Optional[str] = None
+    league_name_ar: Optional[str] = None
+    league_logo: Optional[str] = None
+    season: Optional[int] = None
+    round_en: Optional[str] = None
+    round_ar: Optional[str] = None
+
     # optional team meta (used to auto-create teams if code like fd:xxx not in /teams)
     home_team_name_ar: Optional[str] = None
     home_team_name_en: Optional[str] = None
@@ -1442,6 +1452,16 @@ class MatchUpdate(BaseModel):
     group_name: Optional[str] = None
     external_provider: Optional[str] = None
     external_fixture_id: Optional[str] = None  # accepts "fd:564628" or "564628"
+
+    # بيانات البطولة — تستخدم لربط المباراة بتبويب الدوري
+    league_id: Optional[int] = None
+    league_name_en: Optional[str] = None
+    league_name_ar: Optional[str] = None
+    league_logo: Optional[str] = None
+    season: Optional[int] = None
+    round_en: Optional[str] = None
+    round_ar: Optional[str] = None
+
     # optional team meta (used to auto-create teams if code like fd:xxx not in /teams)
     home_team_name_ar: Optional[str] = None
     home_team_name_en: Optional[str] = None
@@ -2200,6 +2220,15 @@ async def create_match(data: MatchCreate, _staff=Depends(require_staff)):
         "competition": data.competition,
         "stage": data.stage,
         "group_name": data.group_name,
+
+        # بيانات البطولة — لربط المباراة بالدوري الصحيح
+        "league_id": data.league_id,
+        "league_name_en": data.league_name_en,
+        "league_name_ar": data.league_name_ar,
+        "league_logo": data.league_logo,
+        "season": data.season,
+        "round_en": data.round_en,
+        "round_ar": data.round_ar,
         "home_score": None,
         "away_score": None,
         "status": "scheduled",
