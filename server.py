@@ -1681,11 +1681,38 @@ async def register(data: RegisterIn):
 
 @api_router.post("/auth/login", response_model=AuthOut)
 async def login(data: LoginIn):
+    import time
+    _login_start = time.perf_counter()
+
     email = data.email.lower().strip()
+
+    _t = time.perf_counter()
     user = await db.users.find_one({"email": email})
-    if not user or not verify_password(data.password, user["password_hash"]):
+    _db_ms = (time.perf_counter() - _t) * 1000
+
+    _t = time.perf_counter()
+    valid = bool(user and verify_password(data.password, user["password_hash"]))
+    _bcrypt_ms = (time.perf_counter() - _t) * 1000
+
+    if not valid:
+        print(
+            f"LOGIN TIMING db={_db_ms:.1f}ms "
+            f"bcrypt={_bcrypt_ms:.1f}ms "
+            f"total={(time.perf_counter()-_login_start)*1000:.1f}ms"
+        )
         raise HTTPException(status_code=401, detail="البريد أو كلمة المرور غير صحيحة")
+
+    _t = time.perf_counter()
     token = create_token(user["id"])
+    _jwt_ms = (time.perf_counter() - _t) * 1000
+
+    print(
+        f"LOGIN TIMING db={_db_ms:.1f}ms "
+        f"bcrypt={_bcrypt_ms:.1f}ms "
+        f"jwt={_jwt_ms:.1f}ms "
+        f"total={(time.perf_counter()-_login_start)*1000:.1f}ms"
+    )
+
     return {"user": user_to_public(user), "token": token}
 
 
