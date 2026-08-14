@@ -2906,6 +2906,158 @@ async def my_predictions(user=Depends(get_current_user)):
     return preds
 
 
+
+# ---------- Public User Predictions ----------
+@api_router.get("/predictions/public")
+async def public_predictions():
+    """
+    Read-only public predictions.
+    Only predictions for matches that have already started are returned.
+    This endpoint does NOT modify predictions, points, users, or matches.
+    """
+    now = datetime.now(timezone.utc)
+
+    # Get all prediction records first.
+    preds = await db.predictions.find(
+        {},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(10000)
+
+    if not preds:
+        return []
+
+    match_ids = list({
+        str(p.get("match_id"))
+        for p in preds
+        if p.get("match_id")
+    })
+
+    matches = await db.matches.find(
+        {"id": {"$in": match_ids}},
+        {"_id": 0}
+    ).to_list(10000)
+
+    mmap = {str(m.get("id")): m for m in matches}
+
+    # Collect team codes used by the matches.
+    team_codes = set()
+    for m in matches:
+        if m.get("home_team"):
+            team_codes.add(str(m["home_team"]))
+        if m.get("away_team"):
+            team_codes.add(str(m["away_team"]))
+
+    teams = await db.teams.find(
+        {"code": {"$in": list(team_codes)}},
+        {"_id": 0}
+    ).to_list(10000) if team_codes else []
+
+    tmap = {str(t.get("code")): t for t in teams}
+
+    # User names are public display names only.
+    user_ids = list({
+        str(p.get("user_id"))
+        for p in preds
+        if p.get("user_id")
+    })
+
+    users = await db.users.find(
+        {"id": {"$in": user_ids}},
+        {"_id": 0, "id": 1, "name": 1, "avatar": 1}
+    ).to_list(10000) if user_ids else []
+
+    umap = {str(u.get("id")): u for u in users}
+
+    rows = []
+
+    for p in preds:
+        match_id = str(p.get("match_id") or "")
+        m = mmap.get(match_id)
+
+        # Do not expose orphan predictions.
+        if not m:
+            continue
+
+        # Public predictions become visible only after kickoff.
+        kickoff_value = m.get("kickoff_utc") or m.get("kickoff")
+
+        started = m.get("status") in {
+            "live",
+            "started",
+            "in_progress",
+            "finished"
+        }
+
+        if not started and kickoff_value:
+            try:
+                kickoff_dt = datetime.fromisoformat(
+                    str(kickoff_value).replace("Z", "+00:00")
+                )
+
+                if kickoff_dt.tzinfo is None:
+                    kickoff_dt = kickoff_dt.replace(tzinfo=timezone.utc)
+
+                started = kickoff_dt <= now
+            except (ValueError, TypeError):
+                started = False
+
+        if not started:
+            continue
+
+        home_code = str(m.get("home_team") or "")
+        away_code = str(m.get("away_team") or "")
+
+        home_team = tmap.get(home_code, {})
+        away_team = tmap.get(away_code, {})
+
+        home_name_ar = (
+            home_team.get("name_ar")
+            or m.get("home_team_name")
+            or m.get("home_name")
+            or home_code
+        )
+
+        away_name_ar = (
+            away_team.get("name_ar")
+            or m.get("away_team_name")
+            or m.get("away_name")
+            or away_code
+        )
+
+        user = umap.get(str(p.get("user_id")), {})
+
+        rows.append({
+            "id": p.get("id"),
+            "match_id": match_id,
+
+            "home_team": home_code,
+            "away_team": away_code,
+            "home_team_name": home_name_ar,
+            "away_team_name": away_name_ar,
+
+            "pred_home": p.get("home_score"),
+            "pred_away": p.get("away_score"),
+
+            "user_name": user.get("name") or "مستخدم",
+            "user_avatar": user.get("avatar"),
+
+            "created_at": p.get("created_at"),
+
+            "kickoff": kickoff_value,
+            "status": m.get("status"),
+
+            "competition": (
+                m.get("league_name_ar")
+                or m.get("competition")
+                or m.get("league_name_en")
+                or ""
+            ),
+            "league_id": m.get("league_id"),
+        })
+
+    return rows
+
+
 # ---------- Leaderboard ----------
 
 @api_router.post("/competition/predictions", response_model=PredictionModel)
